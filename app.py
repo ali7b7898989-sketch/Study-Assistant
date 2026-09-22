@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. تخصيص الألوان والتصميم بالـ CSS
+# 2. تخصيص الألوان والتصميم وتثبيت شريط الخانات (Tabs) في الأعلى
 st.markdown("""
     <style>
     h1 { font-size: 1.7rem !important; font-weight: 800; text-align: center; color: #6366F1; }
@@ -25,6 +25,17 @@ st.markdown("""
         padding: 16px !important;
         border: 1px solid #334155 !important;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+
+    /* تثبيت شريط التنقل العلوي للـ Tabs */
+    div[data-baseweb="tab-list"] {
+        position: sticky !important;
+        top: 0 !important;
+        background-color: #0E1117 !important;
+        z-index: 99999 !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+        border-bottom: 2px solid #1E293B !important;
     }
 
     button[data-baseweb="tab"] {
@@ -44,16 +55,6 @@ st.markdown("""
         border: none !important;
         border-radius: 10px !important;
         font-weight: bold !important;
-    }
-
-    .fixed-bottom {
-        position: sticky;
-        bottom: 0;
-        background-color: #0E1117;
-        padding-top: 10px;
-        padding-bottom: 10px;
-        z-index: 999;
-        border-top: 1px solid #1E293B;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -85,7 +86,7 @@ def save_history(history):
 st.title("🎓 المساعد الدراسي")
 st.caption("<p style='text-align: center; color: #94A3B8;'>✨ منصتك الذكية لتنظيم الوقت والدراسة</p>", unsafe_allow_html=True)
 
-# الخانات الرئيسية (Tabs)
+# الخانات الرئيسية (مثبتة في الأعلى)
 tab_home, tab_ai, tab_spiritual, tab_schedule = st.tabs([
     "🏠 الواجهة", 
     "🤖 المساعد", 
@@ -137,32 +138,7 @@ with tab_ai:
 
         st.divider()
 
-        chat_container = st.container()
-
-        with chat_container:
-            i = 0
-            while i < len(st.session_state.chat_history):
-                msg = st.session_state.chat_history[i]
-                
-                if msg["role"] == "user":
-                    col_msg, col_del = st.columns([11, 1])
-                    with col_msg:
-                        with st.chat_message("user"):
-                            st.write(msg["content"])
-                    with col_del:
-                        if st.button("❌", key=f"del_{i}", help="حذف هذا السؤال وإجابته"):
-                            if i + 1 < len(st.session_state.chat_history) and st.session_state.chat_history[i+1]["role"] == "assistant":
-                                del st.session_state.chat_history[i:i+2]
-                            else:
-                                del st.session_state.chat_history[i]
-                            save_history(st.session_state.chat_history)
-                            st.rerun()
-                else:
-                    with st.chat_message("assistant"):
-                        st.write(msg["content"])
-                i += 1
-
-        st.markdown('<div class="fixed-bottom">', unsafe_allow_html=True)
+        # مربع الكتابة في الأعلى
         with st.form(key="chat_form", clear_on_submit=True):
             user_query = st.text_area(
                 "", 
@@ -171,7 +147,6 @@ with tab_ai:
                 label_visibility="collapsed"
             )
             send_btn = st.form_submit_button("🚀 إرسال السؤال", use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
 
         if send_btn and user_query.strip():
             st.session_state.chat_history.append({"role": "user", "content": user_query})
@@ -204,39 +179,96 @@ with tab_ai:
             except Exception as e:
                 st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {e}")
 
+        st.divider()
+
+        # عرض المحادثات
+        i = 0
+        while i < len(st.session_state.chat_history):
+            msg = st.session_state.chat_history[i]
+            
+            if msg["role"] == "user":
+                col_msg, col_del = st.columns([11, 1])
+                with col_msg:
+                    with st.chat_message("user"):
+                        st.write(msg["content"])
+                with col_del:
+                    if st.button("❌", key=f"del_{i}", help="حذف هذا السؤال وإجابته"):
+                        if i + 1 < len(st.session_state.chat_history) and st.session_state.chat_history[i+1]["role"] == "assistant":
+                            del st.session_state.chat_history[i:i+2]
+                        else:
+                            del st.session_state.chat_history[i]
+                        save_history(st.session_state.chat_history)
+                        st.rerun()
+            else:
+                with st.chat_message("assistant"):
+                    st.write(msg["content"])
+            i += 1
+
 # --- الخانة الثالثة: الجانب الروحي والنفسي ---
 with tab_spiritual:
     st.subheader("🤲 أدعية وتهيئة نفسية")
     st.write("📖 **دعاء قبل الدراسة:**")
     st.info("«اللهم إنّي أسألك فهم النبيّين، وحفظ المرسلين والإلهام...»")
 
-# --- الخانة الرابعة: الجداول والتوقيتات (التحديث السريع) ---
+# --- الخانة الرابعة: الجداول والتوقيتات العلمية ---
 with tab_schedule:
-    st.subheader("📅 جدول الدراسة والدوام الأسبوعي")
-    st.caption("نظم أوقاتك وموادك اليومية بسهولة من الموبايل")
+    st.subheader("📅 الجداول والدراسة اليومية")
+    st.caption("جداول مصممة وفقاً لأعلى أوقات التركيز الاستيعابي للذاكرة")
 
-    # جدول نمط يومي مقترح للدوام والمراجعة
-    schedule_data = {
-        "الفترة الزمنية": [
-            "8:00 ص - 1:00 م",
-            "1:30 م - 3:00 م",
-            "3:00 م - 5:00 م",
-            "5:00 م - 7:00 م",
-            "8:00 م - 10:00 م"
-        ],
-        "النشاط / المادة": [
-            "🏫 الدوام المدرسي الحضوري",
-            "🍽️ العودة، الغداء واستراحة",
-            "📖 جلسة المراجعة الأولى (المواد العلمية)",
-            "📝 حل الواجبات والتطبيقات",
-            "📚 جلسة المراجعة الثانية (المواد النظرية / اللغات)"
-        ]
-    }
-    
-    df_schedule = pd.DataFrame(schedule_data)
-    st.table(df_schedule)
+    shift_option = st.radio(
+        "اختر نظام دوامك المدرسي:", 
+        ["☀️ الدوام الصباحي (8:00 ص - 1:00 م)", "🌤️ الدوام الظهري (1:00 م - 5:00 م)"],
+        horizontal=True
+    )
 
     st.divider()
 
-    st.write("📌 **تذكير سريع لمواعيد اليوم:**")
-    st.info("💡 نصيحة اليوم: استغل فترة الصباح الباكر وقبل بدء الدوام للتركيز العالي والمراجعة السريعة.")
+    if "الصباحي" in shift_option:
+        st.write("### ☀️ جدول الدوام الصباحي")
+        data_morning = {
+            "التوقيت": [
+                "6:30 ص - 7:30 ص",
+                "8:00 ص - 1:00 م",
+                "1:30 م - 3:00 م",
+                "3:30 م - 6:00 م",
+                "6:00 م - 7:00 م",
+                "7:30 م - 9:30 م",
+                "10:00 م"
+            ],
+            "النشاط المقترح": [
+                "⚡ مراجعة سريعة للمركزات / حفظ مصطلحات",
+                "🏫 الدوام المدرسي الحضوري",
+                "🍽️ العودة، استراحة وغداء",
+                "🧠 المراجعة الفكرية العميق (رياضيات / فيزياء / كيمياء)",
+                "🏃 استراحة حركة وتنقّل (مشافي/رياضة خفيفة)",
+                "📚 المواد الحفظية واللغات (إنكليزي / عربي / فرنسي)",
+                "😴 النوم المبكر لتجديد الطاقة الذكائية"
+            ]
+        }
+        st.table(pd.DataFrame(data_morning))
+    else:
+        st.write("### 🌤️ جدول الدوام الظهري")
+        data_afternoon = {
+            "التوقيت": [
+                "7:00 ص - 8:30 ص",
+                "9:00 ص - 11:30 ص",
+                "11:30 ص - 12:30 م",
+                "1:00 م - 5:00 م",
+                "5:30 م - 6:30 م",
+                "7:00 م - 9:30 م",
+                "10:30 م"
+            ],
+            "النشاط المقترح": [
+                "🌅 قمة صفاء الذهن: المواد العلمية (رياضيات / تحليل)",
+                "📖 المواد النظرية والواجبات اليومية",
+                "🍱 التهيؤ والغداء للدوام",
+                "🏫 الدوام المدرسي الظهري",
+                "☕ العودة، استراحة وتناول المشروب المفضل",
+                "📝 حل تمارين المدرسة + مراجعة دروس الغد",
+                "😴 النوم والاستعداد لليوم التالي"
+            ]
+        }
+        st.table(pd.DataFrame(data_afternoon))
+
+    st.divider()
+    st.info("💡 **نصيحة ذهبية:** أوقات الصباح الباكر تحتوي على أعلى نسبة تركيز للذاكرة طويلة المدى، استغلها دائماً للمواد الصعبة.")
