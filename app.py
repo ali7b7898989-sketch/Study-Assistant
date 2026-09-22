@@ -2,6 +2,7 @@ import streamlit as st
 import google.generativeai as genai
 import json
 import os
+import pandas as pd
 
 # 1. ضبط إعدادات الصفحة
 st.set_page_config(
@@ -136,7 +137,6 @@ with tab_ai:
 
         st.divider()
 
-        # منطقة عرض المحادثة
         chat_container = st.container()
 
         with chat_container:
@@ -162,7 +162,6 @@ with tab_ai:
                         st.write(msg["content"])
                 i += 1
 
-        # نموذج كتابة بميزة التفريغ التلقائي تلقائياً عند الإرسال
         st.markdown('<div class="fixed-bottom">', unsafe_allow_html=True)
         with st.form(key="chat_form", clear_on_submit=True):
             user_query = st.text_area(
@@ -211,7 +210,33 @@ with tab_spiritual:
     st.write("📖 **دعاء قبل الدراسة:**")
     st.info("«اللهم إنّي أسألك فهم النبيّين، وحفظ المرسلين والإلهام...»")
 
-# --- الخانة الرابعة: الجداول والتوقيتات ---
+# --- الخانة الرابعة: الجداول والتوقيتات (التحديث السريع) ---
 with tab_schedule:
-    st.subheader("📅 الجداول والتوقيتات")
-    st.write("تنظيم أوقات الدوام والمراجعة اليومية.")
+    st.subheader("📅 جدول الدراسة والدوام الأسبوعي")
+    st.caption("نظم أوقاتك وموادك اليومية بسهولة من الموبايل")
+
+    # جدول نمط يومي مقترح للدوام والمراجعة
+    schedule_data = {
+        "الفترة الزمنية": [
+            "8:00 ص - 1:00 م",
+            "1:30 م - 3:00 م",
+            "3:00 م - 5:00 م",
+            "5:00 م - 7:00 م",
+            "8:00 م - 10:00 م"
+        ],
+        "النشاط / المادة": [
+            "🏫 الدوام المدرسي الحضوري",
+            "🍽️ العودة، الغداء واستراحة",
+            "📖 جلسة المراجعة الأولى (المواد العلمية)",
+            "📝 حل الواجبات والتطبيقات",
+            "📚 جلسة المراجعة الثانية (المواد النظرية / اللغات)"
+        ]
+    }
+    
+    df_schedule = pd.DataFrame(schedule_data)
+    st.table(df_schedule)
+
+    st.divider()
+
+    st.write("📌 **تذكير سريع لمواعيد اليوم:**")
+    st.info("💡 نصيحة اليوم: استغل فترة الصباح الباكر وقبل بدء الدوام للتركيز العالي والمراجعة السريعة.")
