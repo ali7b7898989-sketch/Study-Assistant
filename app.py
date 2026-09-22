@@ -50,21 +50,6 @@ api_key = st.secrets.get("GEMINI_API_KEY")
 if api_key:
     genai.configure(api_key=api_key)
 
-# دالة تلقائية لمسح التخزين المؤقت والعثور على نموذج عملي فعال
-@st.cache_resource
-def get_working_model():
-    try:
-        models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        # اختيار أفضل نموذج متاح تلقائياً من الحساب
-        for preferred in ['models/gemini-1.5-flash', 'models/gemini-2.0-flash', 'models/gemini-1.5-pro']:
-            if preferred in models:
-                return preferred
-        if models:
-            return models[0]
-    except Exception:
-        pass
-    return "models/gemini-1.5-flash"
-
 # العنوان الرئيسي
 st.title("🎓 المساعد الدراسي")
 st.caption("<p style='text-align: center; color: #94A3B8;'>✨ منصتك الذكية لتنظيم الوقت والدراسة</p>", unsafe_allow_html=True)
@@ -109,12 +94,12 @@ with tab_ai:
     if not api_key:
         st.error("⚠️ لم يتم العثور على `GEMINI_API_KEY` في قسم Secrets. يرجى إضافته في إعدادات Streamlit.")
     else:
-        # تهيئة سجل المحادثات
+        # تهيئة سجل المحادثة
         if "chat_history" not in st.session_state:
             st.session_state.chat_history = []
 
-        # أزرار تحكم بالكل
-        col_clear, col_count = st.columns([1, 3])
+        # زر مسح كل المحادثات
+        col_clear, _ = st.columns([1, 3])
         with col_clear:
             if st.button("🗑️ مسح الكل"):
                 st.session_state.chat_history = []
@@ -122,27 +107,40 @@ with tab_ai:
 
         st.divider()
 
-        # عرض الرسائل وحذف سؤال محدد
-        for idx, msg in enumerate(st.session_state.chat_history):
-            col_msg, col_del = st.columns([11, 1])
-            with col_msg:
-                with st.chat_message(msg["role"]):
-                    st.write(msg["content"])
-            with col_del:
-                if msg["role"] == "user":
-                    if st.button("❌", key=f"del_{idx}", help="حذف هذا السؤال مع إجابته"):
-                        # حذف السؤال والإجابة التي تليه مباشرة
-                        del st.session_state.chat_history[idx:idx+2]
+        # عرض المحادثات مع خيار حذف سؤال محدد
+        i = 0
+        while i < len(st.session_state.chat_history):
+            msg = st.session_state.chat_history[i]
+            
+            if msg["role"] == "user":
+                col_msg, col_del = st.columns([11, 1])
+                with col_msg:
+                    with st.chat_message("user"):
+                        st.write(msg["content"])
+                with col_del:
+                    if st.button("❌", key=f"del_{i}", help="حذف هذا السؤال وإجابته"):
+                        # حذف السؤال والإجابة التي تليه مباشرة إن وجدت
+                        if i + 1 < len(st.session_state.chat_history) and st.session_state.chat_history[i+1]["role"] == "assistant":
+                            del st.session_state.chat_history[i:i+2]
+                        else:
+                            del st.session_state.chat_history[i]
                         st.rerun()
+            else:
+                with st.chat_message("assistant"):
+                    st.write(msg["content"])
+            i += 1
 
         # مدخل السؤال الجديد
         user_query = st.chat_input("اكتب سؤالك أو المادة التي تريد شرحها هنا...")
 
         if user_query:
             st.session_state.chat_history.append({"role": "user", "content": user_query})
-            with st.chat_message("user"):
-                st.write(user_query)
+            st.rerun()
 
+    # معالجة توليد الإجابة عند وجود سؤال جديد لم يُجب عليه بعد
+    if "chat_history" in st.session_state and len(st.session_state.chat_history) > 0:
+        last_msg = st.session_state.chat_history[-1]
+        if last_msg["role"] == "user":
             with st.chat_message("assistant"):
                 with st.spinner("جاري التفكير والتوضيح... 💡"):
                     system_instruction = (
@@ -151,24 +149,27 @@ with tab_ai:
                     )
                     
                     try:
-                        active_model_name = get_working_model()
+                        # استخدام النموذج المطلوب في الرسالة
                         model = genai.GenerativeModel(
-                            model_name=active_model_name,
+                            model_name="gemini-2.5-flash",
                             system_instruction=system_instruction
                         )
                         
-                        # بناء السياق التراكمي
-                        context_prompt = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.chat_history])
+                        # إرسال المحادثة الكاملة لضمان استمرار السياق
+                        context_prompt = ""
+                        for h in st.session_state.chat_history:
+                            role_label = "الطالب" if h["role"] == "user" else "المساعد"
+                            context_prompt += f"{role_label}: {h['content']}\n"
                         
                         response = model.generate_content(context_prompt)
                         
                         if response and response.text:
-                            st.write(response.text)
                             st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+                            st.rerun()
                         else:
                             st.error("لم يتم استلام رد من النموذج، حاول مرة أخرى.")
                     except Exception as e:
-                        st.error(f"حدث خطأ أثناء الاتصال: {e}")
+                        st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {e}")
 
 # --- الخانة الثالثة: الجانب الروحي والنفسي ---
 with tab_spiritual:
