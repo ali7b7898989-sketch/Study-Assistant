@@ -1,5 +1,7 @@
 import streamlit as st
 import google.generativeai as genai
+import json
+import os
 
 # 1. ضبط إعدادات الصفحة
 st.set_page_config(
@@ -50,6 +52,25 @@ api_key = st.secrets.get("GEMINI_API_KEY")
 if api_key:
     genai.configure(api_key=api_key)
 
+# دالة حفظ واسترجاع السجل محلياً
+HISTORY_FILE = "chat_history.json"
+
+def load_history():
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_history(history):
+    try:
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
 # العنوان الرئيسي
 st.title("🎓 المساعد الدراسي")
 st.caption("<p style='text-align: center; color: #94A3B8;'>✨ منصتك الذكية لتنظيم الوقت والدراسة</p>", unsafe_allow_html=True)
@@ -94,15 +115,16 @@ with tab_ai:
     if not api_key:
         st.error("⚠️ لم يتم العثور على `GEMINI_API_KEY` في قسم Secrets. يرجى إضافته في إعدادات Streamlit.")
     else:
-        # تهيئة سجل المحادثة
+        # تحميل سجل المحادثة المحفوظ
         if "chat_history" not in st.session_state:
-            st.session_state.chat_history = []
+            st.session_state.chat_history = load_history()
 
         # زر مسح كل المحادثات
         col_clear, _ = st.columns([1, 3])
         with col_clear:
             if st.button("🗑️ مسح الكل"):
                 st.session_state.chat_history = []
+                save_history([])
                 st.rerun()
 
         st.divider()
@@ -123,6 +145,7 @@ with tab_ai:
                             del st.session_state.chat_history[i:i+2]
                         else:
                             del st.session_state.chat_history[i]
+                        save_history(st.session_state.chat_history)
                         st.rerun()
             else:
                 with st.chat_message("assistant"):
@@ -134,9 +157,10 @@ with tab_ai:
 
         if user_query:
             st.session_state.chat_history.append({"role": "user", "content": user_query})
+            save_history(st.session_state.chat_history)
             st.rerun()
 
-    # معالجة توليد الإجابة عند وجود سؤال جديد لم يُجب عليه بعد
+    # معالجة توليد الإجابة
     if "chat_history" in st.session_state and len(st.session_state.chat_history) > 0:
         last_msg = st.session_state.chat_history[-1]
         if last_msg["role"] == "user":
@@ -148,13 +172,11 @@ with tab_ai:
                     )
                     
                     try:
-                        # استخدام النموذج الموصى به في الخطأ مباشرة
                         model = genai.GenerativeModel(
                             model_name="gemini-3.6-flash",
                             system_instruction=system_instruction
                         )
                         
-                        # إرسال المحادثة الكاملة لضمان استمرار السياق
                         context_prompt = ""
                         for h in st.session_state.chat_history:
                             role_label = "الطالب" if h["role"] == "user" else "المساعد"
@@ -164,6 +186,7 @@ with tab_ai:
                         
                         if response and response.text:
                             st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+                            save_history(st.session_state.chat_history)
                             st.rerun()
                         else:
                             st.error("لم يتم استلام رد من النموذج، حاول مرة أخرى.")
