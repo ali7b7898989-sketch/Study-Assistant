@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. تخصيص الألوان والتصميم وتثبيت شريط الخانات (Tabs) في الأعلى
+# 2. تخصيص الألوان وتثبيت التبويبات في الأعلى والـ Chat Input في الأسفل
 st.markdown("""
     <style>
     h1 { font-size: 1.7rem !important; font-weight: 800; text-align: center; color: #6366F1; }
@@ -27,7 +27,7 @@ st.markdown("""
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
     }
 
-    /* تثبيت شريط التنقل العلوي للـ Tabs */
+    /* تثبيت شريط الأيقونات والتبويبات في القمة دائماً */
     div[data-baseweb="tab-list"] {
         position: sticky !important;
         top: 0 !important;
@@ -86,7 +86,7 @@ def save_history(history):
 st.title("🎓 المساعد الدراسي")
 st.caption("<p style='text-align: center; color: #94A3B8;'>✨ منصتك الذكية لتنظيم الوقت والدراسة</p>", unsafe_allow_html=True)
 
-# الخانات الرئيسية (مثبتة في الأعلى)
+# الخانات الرئيسية (مثبتة في الأعلى دائماً)
 tab_home, tab_ai, tab_spiritual, tab_schedule = st.tabs([
     "🏠 الواجهة", 
     "🤖 المساعد", 
@@ -121,10 +121,9 @@ with tab_home:
 # --- الخانة الثانية: المساعد الذكي (AI) ---
 with tab_ai:
     st.subheader("🤖 المساعد الدراسي الذكي")
-    st.caption("اسألني عن شرح مفهوم، حل مسألة، أو أي سؤال عام ودراسي!")
-
+    
     if not api_key:
-        st.error("⚠️ لم يتم العثور على `GEMINI_API_KEY` في قسم Secrets. يرجى إضافته في إعدادات Streamlit.")
+        st.error("⚠️ لم يتم العثور على `GEMINI_API_KEY` في قسم Secrets.")
     else:
         if "chat_history" not in st.session_state:
             st.session_state.chat_history = load_history()
@@ -138,17 +137,33 @@ with tab_ai:
 
         st.divider()
 
-        # مربع الكتابة في الأعلى
-        with st.form(key="chat_form", clear_on_submit=True):
-            user_query = st.text_area(
-                "", 
-                height=90, 
-                placeholder="اكتب سؤالك أو المادة التي تريد شرحها...",
-                label_visibility="collapsed"
-            )
-            send_btn = st.form_submit_button("🚀 إرسال السؤال", use_container_width=True)
+        # عرض سجل الرسائل والمحادثات القديمة في المنتصف
+        i = 0
+        while i < len(st.session_state.chat_history):
+            msg = st.session_state.chat_history[i]
+            
+            if msg["role"] == "user":
+                col_msg, col_del = st.columns([11, 1])
+                with col_msg:
+                    with st.chat_message("user"):
+                        st.write(msg["content"])
+                with col_del:
+                    if st.button("❌", key=f"del_{i}", help="حذف هذا السؤال وإجابته"):
+                        if i + 1 < len(st.session_state.chat_history) and st.session_state.chat_history[i+1]["role"] == "assistant":
+                            del st.session_state.chat_history[i:i+2]
+                        else:
+                            del st.session_state.chat_history[i]
+                        save_history(st.session_state.chat_history)
+                        st.rerun()
+            else:
+                with st.chat_message("assistant"):
+                    st.write(msg["content"])
+            i += 1
 
-        if send_btn and user_query.strip():
+        # خانة الكتابة المثبتة دائماً في أسفل الشاشة (تسمح بالنزول لسطر جديد وتفريغ النص تلقائياً)
+        user_query = st.chat_input("اكتب سؤالك هنا...")
+
+        if user_query:
             st.session_state.chat_history.append({"role": "user", "content": user_query})
 
             system_instruction = (
@@ -179,42 +194,16 @@ with tab_ai:
             except Exception as e:
                 st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {e}")
 
-        st.divider()
-
-        # عرض المحادثات
-        i = 0
-        while i < len(st.session_state.chat_history):
-            msg = st.session_state.chat_history[i]
-            
-            if msg["role"] == "user":
-                col_msg, col_del = st.columns([11, 1])
-                with col_msg:
-                    with st.chat_message("user"):
-                        st.write(msg["content"])
-                with col_del:
-                    if st.button("❌", key=f"del_{i}", help="حذف هذا السؤال وإجابته"):
-                        if i + 1 < len(st.session_state.chat_history) and st.session_state.chat_history[i+1]["role"] == "assistant":
-                            del st.session_state.chat_history[i:i+2]
-                        else:
-                            del st.session_state.chat_history[i]
-                        save_history(st.session_state.chat_history)
-                        st.rerun()
-            else:
-                with st.chat_message("assistant"):
-                    st.write(msg["content"])
-            i += 1
-
 # --- الخانة الثالثة: الجانب الروحي والنفسي ---
 with tab_spiritual:
     st.subheader("🤲 أدعية وتهيئة نفسية")
     st.write("📖 **دعاء قبل الدراسة:**")
     st.info("«اللهم إنّي أسألك فهم النبيّين، وحفظ المرسلين والإلهام...»")
 
-# --- الخانة الرابعة: الجداول والتوقيتات العلمية ---
+# --- الخانة الرابعة: الجداول والتوقيتات ---
 with tab_schedule:
     st.subheader("📅 الجداول والدراسة اليومية")
-    st.caption("جداول مصممة وفقاً لأعلى أوقات التركيز الاستيعابي للذاكرة")
-
+    
     shift_option = st.radio(
         "اختر نظام دوامك المدرسي:", 
         ["☀️ الدوام الصباحي (8:00 ص - 1:00 م)", "🌤️ الدوام الظهري (1:00 م - 5:00 م)"],
@@ -240,9 +229,9 @@ with tab_schedule:
                 "🏫 الدوام المدرسي الحضوري",
                 "🍽️ العودة، استراحة وغداء",
                 "🧠 المراجعة الفكرية العميق (رياضيات / فيزياء / كيمياء)",
-                "🏃 استراحة حركة وتنقّل (مشافي/رياضة خفيفة)",
-                "📚 المواد الحفظية واللغات (إنكليزي / عربي / فرنسي)",
-                "😴 النوم المبكر لتجديد الطاقة الذكائية"
+                "🏃 استراحة حركة وتنقّل",
+                "📚 المواد الحفظية واللغات",
+                "😴 النوم المبكر"
             ]
         }
         st.table(pd.DataFrame(data_morning))
@@ -269,6 +258,3 @@ with tab_schedule:
             ]
         }
         st.table(pd.DataFrame(data_afternoon))
-
-    st.divider()
-    st.info("💡 **نصيحة ذهبية:** أوقات الصباح الباكر تحتوي على أعلى نسبة تركيز للذاكرة طويلة المدى، استغلها دائماً للمواد الصعبة.")
