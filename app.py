@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. تخصيص الألوان والتصميم بالـ CSS
+# 2. تخصيص الألوان والتصميم بالـ CSS المناسب للهاتف
 st.markdown("""
     <style>
     h1 { font-size: 1.7rem !important; font-weight: 800; text-align: center; color: #6366F1; }
@@ -149,16 +149,24 @@ with tab_ai:
                     st.write(msg["content"])
             i += 1
 
-        # استقبال السؤال الجديد والمعالجة المباشرة السريعة
-        user_query = st.chat_input("اكتب سؤالك أو المادة التي تريد شرحها هنا...")
+        st.divider()
 
-        if user_query:
+        # مربع كتابة متعدد الأسطر مخصص للهاتف مع زر إرسال مستقل
+        user_query = st.text_area(
+            "اكتب سؤالك هنا (اضغط Enter للنزول لسطر جديد):", 
+            height=100, 
+            placeholder="اكتب سؤالك أو المادة التي تريد شرحها...",
+            key="input_box"
+        )
+        send_btn = st.button("🚀 إرسال السؤال", use_container_width=True)
+
+        if send_btn and user_query.strip():
             # عرض سؤال الطالب فوراً
             with st.chat_message("user"):
                 st.write(user_query)
             st.session_state.chat_history.append({"role": "user", "content": user_query})
 
-            # توليد الإجابة مباشرة بدون إعادة تحميل
+            # توليد الإجابة بسرعة
             with st.chat_message("assistant"):
                 with st.spinner("جاري التفكير والتوضيح... 💡"):
                     system_instruction = (
@@ -172,7 +180,6 @@ with tab_ai:
                             system_instruction=system_instruction
                         )
                         
-                        # استخدام نظام المحادثة المباشر للإجابة السريعة
                         formatted_history = []
                         for h in st.session_state.chat_history[:-1]:
                             role = "user" if h["role"] == "user" else "model"
