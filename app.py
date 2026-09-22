@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. تخصيص الألوان وتثبيت التبويبات في الأعلى والـ Chat Input في الأسفل
+# 2. تخصيص الألوان والتصميم
 st.markdown("""
     <style>
     h1 { font-size: 1.7rem !important; font-weight: 800; text-align: center; color: #6366F1; }
@@ -25,17 +25,6 @@ st.markdown("""
         padding: 16px !important;
         border: 1px solid #334155 !important;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
-    }
-
-    /* تثبيت شريط الأيقونات والتبويبات في القمة دائماً */
-    div[data-baseweb="tab-list"] {
-        position: sticky !important;
-        top: 0 !important;
-        background-color: #0E1117 !important;
-        z-index: 99999 !important;
-        padding-top: 8px !important;
-        padding-bottom: 8px !important;
-        border-bottom: 2px solid #1E293B !important;
     }
 
     button[data-baseweb="tab"] {
@@ -86,7 +75,7 @@ def save_history(history):
 st.title("🎓 المساعد الدراسي")
 st.caption("<p style='text-align: center; color: #94A3B8;'>✨ منصتك الذكية لتنظيم الوقت والدراسة</p>", unsafe_allow_html=True)
 
-# الخانات الرئيسية (مثبتة في الأعلى دائماً)
+# الخانات الرئيسية
 tab_home, tab_ai, tab_spiritual, tab_schedule = st.tabs([
     "🏠 الواجهة", 
     "🤖 المساعد", 
@@ -137,7 +126,7 @@ with tab_ai:
 
         st.divider()
 
-        # عرض سجل الرسائل والمحادثات القديمة في المنتصف
+        # عرض الرسائل
         i = 0
         while i < len(st.session_state.chat_history):
             msg = st.session_state.chat_history[i]
@@ -160,7 +149,7 @@ with tab_ai:
                     st.write(msg["content"])
             i += 1
 
-        # خانة الكتابة المثبتة دائماً في أسفل الشاشة (تسمح بالنزول لسطر جديد وتفريغ النص تلقائياً)
+        # حقل الكتابة المثبت في أسفل الشاشة
         user_query = st.chat_input("اكتب سؤالك هنا...")
 
         if user_query:
