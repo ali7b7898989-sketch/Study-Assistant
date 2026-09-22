@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. تخصيص الألوان والتصميم بالـ CSS المتقدم لتثبيت حقل الكتابة في الأسفل
+# 2. تخصيص الألوان والتصميم بالـ CSS
 st.markdown("""
     <style>
     h1 { font-size: 1.7rem !important; font-weight: 800; text-align: center; color: #6366F1; }
@@ -45,7 +45,6 @@ st.markdown("""
         font-weight: bold !important;
     }
 
-    /* تثبيت الحاوية الخاصة بالإدخال في الأسفل */
     .fixed-bottom {
         position: sticky;
         bottom: 0;
@@ -163,55 +162,48 @@ with tab_ai:
                         st.write(msg["content"])
                 i += 1
 
-        # خانة الكتابة المثبتة في الأسفل
+        # نموذج كتابة بميزة التفريغ التلقائي تلقائياً عند الإرسال
         st.markdown('<div class="fixed-bottom">', unsafe_allow_html=True)
-        user_query = st.text_area(
-            "", 
-            height=90, 
-            placeholder="اكتب سؤالك أو المادة التي تريد شرحها...",
-            key="input_box",
-            label_visibility="collapsed"
-        )
-        send_btn = st.button("🚀 إرسال السؤال", use_container_width=True)
+        with st.form(key="chat_form", clear_on_submit=True):
+            user_query = st.text_area(
+                "", 
+                height=90, 
+                placeholder="اكتب سؤالك أو المادة التي تريد شرحها...",
+                label_visibility="collapsed"
+            )
+            send_btn = st.form_submit_button("🚀 إرسال السؤال", use_container_width=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
         if send_btn and user_query.strip():
-            with chat_container:
-                with st.chat_message("user"):
-                    st.write(user_query)
             st.session_state.chat_history.append({"role": "user", "content": user_query})
 
-            with chat_container:
-                with st.chat_message("assistant"):
-                    with st.spinner("جاري التفكير والتوضيح... 💡"):
-                        system_instruction = (
-                            "أنت مساعد دراسي ونفسي محفز وودود للطلاب. "
-                            "أجب عن جميع أسئلة الطالب بوضوح وبساطة، ووجّهه دائماً نحو النجاح والتركيز."
-                        )
-                        
-                        try:
-                            model = genai.GenerativeModel(
-                                model_name="gemini-3.6-flash",
-                                system_instruction=system_instruction
-                            )
-                            
-                            formatted_history = []
-                            for h in st.session_state.chat_history[:-1]:
-                                role = "user" if h["role"] == "user" else "model"
-                                formatted_history.append({"role": role, "parts": [h["content"]]})
-                                
-                            chat = model.start_chat(history=formatted_history)
-                            response = chat.send_message(user_query)
-                            
-                            if response and response.text:
-                                st.write(response.text)
-                                st.session_state.chat_history.append({"role": "assistant", "content": response.text})
-                                save_history(st.session_state.chat_history)
-                                st.rerun()
-                            else:
-                                st.error("لم يتم استلام رد من النموذج، حاول مرة أخرى.")
-                        except Exception as e:
-                            st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {e}")
+            system_instruction = (
+                "أنت مساعد دراسي ونفسي محفز وودود للطلاب. "
+                "أجب عن جميع أسئلة الطالب بوضوح وبساطة، ووجّهه دائماً نحو النجاح والتركيز."
+            )
+            
+            try:
+                model = genai.GenerativeModel(
+                    model_name="gemini-3.6-flash",
+                    system_instruction=system_instruction
+                )
+                
+                formatted_history = []
+                for h in st.session_state.chat_history[:-1]:
+                    role = "user" if h["role"] == "user" else "model"
+                    formatted_history.append({"role": role, "parts": [h["content"]]})
+                    
+                chat = model.start_chat(history=formatted_history)
+                response = chat.send_message(user_query)
+                
+                if response and response.text:
+                    st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+                    save_history(st.session_state.chat_history)
+                    st.rerun()
+                else:
+                    st.error("لم يتم استلام رد من النموذج، حاول مرة أخرى.")
+            except Exception as e:
+                st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {e}")
 
 # --- الخانة الثالثة: الجانب الروحي والنفسي ---
 with tab_spiritual:
