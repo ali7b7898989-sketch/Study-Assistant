@@ -1,5 +1,5 @@
 import streamlit as st
-from google import genai
+import google.generativeai as genai
 
 # 1. ضبط إعدادات الصفحة
 st.set_page_config(
@@ -49,9 +49,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. إعداد العميل لخدمة الذكاء الاصطناعي (Gemini)
+# 3. تهيئة مفتاح API الخاص بـ Gemini
 api_key = st.secrets.get("GEMINI_API_KEY")
-client = genai.Client(api_key=api_key) if api_key else None
+if api_key:
+    genai.configure(api_key=api_key)
 
 # العنوان الرئيسي
 st.title("🎓 المساعد الدراسي")
@@ -94,7 +95,7 @@ with tab_ai:
     st.subheader("🤖 المساعد الدراسي الذكي")
     st.caption("اسألني عن شرح مفهوم، حل مسألة، أو تلخيص درس!")
 
-    if not client:
+    if not api_key:
         st.error("⚠️ لم يتم العثور على `GEMINI_API_KEY` في قسم Secrets. يرجى إضافته في إعدادات Streamlit.")
     else:
         if "chat_history" not in st.session_state:
@@ -113,34 +114,22 @@ with tab_ai:
 
             with st.chat_message("assistant"):
                 with st.spinner("جاري التفكير والتوضيح... 💡"):
-                    system_prompt = (
-                        "أنت مساعد دراسي ذكي ومحفز للطلاب. "
-                        "قدم إجابات مبسطة، واضحة، ومنظمة بأسلوب يسهل الحفظ والفهم."
-                    )
-                    prompt_text = f"{system_prompt}\n\nسؤال الطالب: {user_query}"
-                    
-                    # قائمة بالنماذج المتاحة للجرية بالترتيب
-                    models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
-                    response_text = None
-                    last_error = None
-
-                    for model_name in models_to_try:
-                        try:
-                            response = client.models.generate_content(
-                                model=model_name,
-                                contents=prompt_text
-                            )
-                            if response and response.text:
-                                response_text = response.text
-                                break
-                        except Exception as e:
-                            last_error = e
-
-                    if response_text:
-                        st.write(response_text)
-                        st.session_state.chat_history.append({"role": "assistant", "content": response_text})
-                    else:
-                        st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {last_error}")
+                    try:
+                        system_instruction = (
+                            "أنت مساعد دراسي ذكي ومحفز للطلاب. "
+                            "قدم إجابات مبسطة، واضحة، ومنظمة بأسلوب يسهل الحفظ والفهم."
+                        )
+                        model = genai.GenerativeModel(
+                            model_name="gemini-1.5-flash",
+                            system_instruction=system_instruction
+                        )
+                        
+                        response = model.generate_content(user_query)
+                        
+                        st.write(response.text)
+                        st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+                    except Exception as e:
+                        st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {e}")
 
 # --- الخانة الثالثة: الجانب الروحي والنفسي ---
 with tab_spiritual:
