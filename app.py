@@ -2,55 +2,83 @@ import streamlit as st
 
 # ضبط إعدادات الصفحة
 st.set_page_config(
-    page_title="المساعد الدراسي الذكي",
+    page_title="المساعد الدراسي",
     page_icon="🎓",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-st.title("🎓 المساعد الدراسي الذكي")
-st.write("مرحباً بك! منصتك التكاملية لتنظيم وقتك، التركيز في دراستك، والاهتمام بجانبك الروحي والنفسي.")
+# تحسين المظهر العام بلمسات CSS لتصغير الخطوط وترتيب البطاقات
+st.markdown("""
+    <style>
+    /* تصغير العناوين لتناسب الموبايل */
+    h1 { font-size: 1.8rem !important; font-weight: 700; text-align: center; }
+    h2 { font-size: 1.3rem !important; }
+    h3 { font-size: 1.1rem !important; }
+    
+    /* تصميم البطاقات المخصصة */
+    .stCard {
+        background-color: #1e222d;
+        border-radius: 12px;
+        padding: 16px;
+        border: 1px solid #2e3440;
+        margin-bottom: 12px;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# إنشاء الخانات المخصصة للخدمات (Tabs)
+# العنوان الرئيسي
+st.title("🎓 المساعد الدراسي")
+st.caption("✨ منصتك الذكية لتنظيم الوقت، الدراسة، والراحة النفسية")
+
+# الخانات الرئيسية (Tabs)
 tab_home, tab_ai, tab_spiritual, tab_schedule = st.tabs([
-    "📌 الواجهة الرئيسية والنوتات", 
-    "🤖 المساعد الدراسي (AI)", 
-    "🤲 الأدعية والجانب الروحي", 
-    "📅 الجداول والتوقيتات"
+    "🏠 الواجهة", 
+    "🤖 المساعد", 
+    "🤲 الروحي", 
+    "📅 الجداول"
 ])
 
-# --- الخانة الأولى: الواجهة الرئيسية والمؤقت والنوتات ---
+# --- الخانة الأولى: الواجهة الرئيسية ---
 with tab_home:
-    st.header("📌 لوحة التحكم والتركيز")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
+    # بطاقة النوتات السريعة
+    with st.container():
         st.subheader("📝 ملاحظات اليوم والأهداف")
         notes = st.text_area(
-            "اكتب ملاحظاتك أو أهدافك السريعة هنا:", 
-            height=150, 
-            placeholder="مثال: مراجعة الفصل الأول + حل 3 أسئلة وزارية"
+            "", 
+            height=100, 
+            placeholder="اكتب أهدافك السريعة هنا... (مثال: مراجعة فصل الرياضيات)",
+            label_visibility="collapsed"
         )
         if notes:
-            st.info(f"**نوتة اليوم:** {notes}")
-            
-    with col2:
-        st.subheader("⏱️ مؤقت الدراسة (Pomodoro)")
-        study_time = st.number_input("وقت الدراسة (بالدقائق):", value=25, min_value=1)
-        if st.button("بدء جلسة التركيز"):
-            st.warning(f"بدأت جلسة التركيز! استمر لمدة {study_time} دقيقة بدون مشتتات 💪")
+            st.success(f"📌 **الهدف المكتوب:** {notes}")
+
+    st.divider()
+
+    # بطاقة المؤقت
+    with st.container():
+        st.subheader("⏱️ مؤقت التركيز (Pomodoro)")
+        col_time, col_btn = st.columns([2, 1])
+        with col_time:
+            study_time = st.number_input("المدة (دقائق):", value=25, min_value=1, step=5)
+        with col_btn:
+            st.write("") # مسافة للضبط
+            st.write("") 
+            if st.button("🚀 ابدأ", use_container_width=True):
+                st.warning(f"بدأت الجلسة! {study_time} دقيقة تركيز بدون مشتتات 💪")
 
 # --- الخانة الثانية: المساعد الذكي ---
 with tab_ai:
-    st.header("🤖 المساعد الدراسي الذكي")
-    st.write("هنا يمكنك سؤال الذكاء الاصطناعي عن أي مادة أو مسألة يصعب عليك فهمها.")
+    st.subheader("🤖 المساعد الدراسي الذكي")
+    st.info("💡 اسأل عن أي مادة، مسألة، أو تلخيص فصل وسأجيبك فوراً!")
 
-# --- الخانة الثالثة: الأدعية والجانب الروحي ---
+# --- الخانة الثالثة: الجانب الروحي والنفسي ---
 with tab_spiritual:
-    st.header("🤲 أدعية وتهيئة نفسية")
-    st.write("أدعية قبل وبعد الدراسة وآيات للسكينة والاطمئنان.")
+    st.subheader("🤲 أدعية وتهيئة نفسية")
+    st.write("📖 **دعاء قبل الدراسة:**")
+    st.info("«اللهم إنّي أسألك فهم النبيّين، وحفظ المرسلين والإلهام...»")
 
 # --- الخانة الرابعة: الجداول ---
 with tab_schedule:
-    st.header("📅 تنظيم الوقت والجداول")
-    st.write("جداول الدوام والمراجعة وزمن الامتحانات.")
+    st.subheader("📅 الجداول والتوقيتات")
+    st.write("تنظيم أوقات الدوام والمراجعة اليومية.")
