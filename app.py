@@ -119,7 +119,6 @@ with tab_ai:
                         st.write(msg["content"])
                 with col_del:
                     if st.button("❌", key=f"del_{i}", help="حذف هذا السؤال وإجابته"):
-                        # حذف السؤال والإجابة التي تليه مباشرة إن وجدت
                         if i + 1 < len(st.session_state.chat_history) and st.session_state.chat_history[i+1]["role"] == "assistant":
                             del st.session_state.chat_history[i:i+2]
                         else:
@@ -149,9 +148,9 @@ with tab_ai:
                     )
                     
                     try:
-                        # استخدام النموذج المطلوب في الرسالة
+                        # استخدام النموذج الموصى به في الخطأ مباشرة
                         model = genai.GenerativeModel(
-                            model_name="gemini-2.5-flash",
+                            model_name="gemini-3.6-flash",
                             system_instruction=system_instruction
                         )
                         
