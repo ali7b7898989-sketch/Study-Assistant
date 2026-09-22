@@ -114,35 +114,23 @@ with tab_ai:
 
             with st.chat_message("assistant"):
                 with st.spinner("جاري التفكير والتوضيح... 💡"):
-                    system_instruction = (
-                        "أنت مساعد دراسي ونفسي محفز وودود للطلاب. "
-                        "أجب عن جميع أسئلة الطالب بوضوح وبساطة سواء كانت دراسية أو عامة، "
-                        "ووجّهه دائماً نحو النجاح والتركيز."
-                    )
-                    
-                    # تجربة أسماء النماذج بالترتيب للوصول للنموذج المتاح
-                    candidate_models = ["gemini-1.5-flash-latest", "gemini-1.5-pro-latest", "gemini-pro"]
-                    response_text = None
-                    last_err = None
-
-                    for model_name in candidate_models:
-                        try:
-                            model = genai.GenerativeModel(
-                                model_name=model_name,
-                                system_instruction=system_instruction
-                            )
-                            res = model.generate_content(user_query)
-                            if res and res.text:
-                                response_text = res.text
-                                break
-                        except Exception as e:
-                            last_err = e
-
-                    if response_text:
-                        st.write(response_text)
-                        st.session_state.chat_history.append({"role": "assistant", "content": response_text})
-                    else:
-                        st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {last_err}")
+                    try:
+                        system_instruction = (
+                            "أنت مساعد دراسي ونفسي محفز وودود للطلاب. "
+                            "أجب عن جميع أسئلة الطالب بوضوح وبساطة سواء كانت دراسية أو عامة، "
+                            "ووجّهه دائماً نحو النجاح والتركيز."
+                        )
+                        model = genai.GenerativeModel(
+                            model_name="gemini-1.5-flash",
+                            system_instruction=system_instruction
+                        )
+                        
+                        response = model.generate_content(user_query)
+                        
+                        st.write(response.text)
+                        st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+                    except Exception as e:
+                        st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {e}")
 
 # --- الخانة الثالثة: الجانب الروحي والنفسي ---
 with tab_spiritual:
