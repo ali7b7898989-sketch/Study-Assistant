@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 2. تخصيص الألوان والتصميم بالـ CSS المناسب للهاتف
+# 2. تخصيص الألوان والتصميم بالـ CSS المتقدم لتثبيت حقل الكتابة في الأسفل
 st.markdown("""
     <style>
     h1 { font-size: 1.7rem !important; font-weight: 800; text-align: center; color: #6366F1; }
@@ -43,6 +43,17 @@ st.markdown("""
         border: none !important;
         border-radius: 10px !important;
         font-weight: bold !important;
+    }
+
+    /* تثبيت الحاوية الخاصة بالإدخال في الأسفل */
+    .fixed-bottom {
+        position: sticky;
+        bottom: 0;
+        background-color: #0E1117;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        z-index: 999;
+        border-top: 1px solid #1E293B;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -126,76 +137,81 @@ with tab_ai:
 
         st.divider()
 
-        # عرض الرسائل القديمة
-        i = 0
-        while i < len(st.session_state.chat_history):
-            msg = st.session_state.chat_history[i]
-            
-            if msg["role"] == "user":
-                col_msg, col_del = st.columns([11, 1])
-                with col_msg:
-                    with st.chat_message("user"):
+        # منطقة عرض المحادثة
+        chat_container = st.container()
+
+        with chat_container:
+            i = 0
+            while i < len(st.session_state.chat_history):
+                msg = st.session_state.chat_history[i]
+                
+                if msg["role"] == "user":
+                    col_msg, col_del = st.columns([11, 1])
+                    with col_msg:
+                        with st.chat_message("user"):
+                            st.write(msg["content"])
+                    with col_del:
+                        if st.button("❌", key=f"del_{i}", help="حذف هذا السؤال وإجابته"):
+                            if i + 1 < len(st.session_state.chat_history) and st.session_state.chat_history[i+1]["role"] == "assistant":
+                                del st.session_state.chat_history[i:i+2]
+                            else:
+                                del st.session_state.chat_history[i]
+                            save_history(st.session_state.chat_history)
+                            st.rerun()
+                else:
+                    with st.chat_message("assistant"):
                         st.write(msg["content"])
-                with col_del:
-                    if st.button("❌", key=f"del_{i}", help="حذف هذا السؤال وإجابته"):
-                        if i + 1 < len(st.session_state.chat_history) and st.session_state.chat_history[i+1]["role"] == "assistant":
-                            del st.session_state.chat_history[i:i+2]
-                        else:
-                            del st.session_state.chat_history[i]
-                        save_history(st.session_state.chat_history)
-                        st.rerun()
-            else:
-                with st.chat_message("assistant"):
-                    st.write(msg["content"])
-            i += 1
+                i += 1
 
-        st.divider()
-
-        # مربع كتابة متعدد الأسطر مخصص للهاتف مع زر إرسال مستقل
+        # خانة الكتابة المثبتة في الأسفل
+        st.markdown('<div class="fixed-bottom">', unsafe_allow_html=True)
         user_query = st.text_area(
-            "اكتب سؤالك هنا (اضغط Enter للنزول لسطر جديد):", 
-            height=100, 
+            "", 
+            height=90, 
             placeholder="اكتب سؤالك أو المادة التي تريد شرحها...",
-            key="input_box"
+            key="input_box",
+            label_visibility="collapsed"
         )
         send_btn = st.button("🚀 إرسال السؤال", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
         if send_btn and user_query.strip():
-            # عرض سؤال الطالب فوراً
-            with st.chat_message("user"):
-                st.write(user_query)
+            with chat_container:
+                with st.chat_message("user"):
+                    st.write(user_query)
             st.session_state.chat_history.append({"role": "user", "content": user_query})
 
-            # توليد الإجابة بسرعة
-            with st.chat_message("assistant"):
-                with st.spinner("جاري التفكير والتوضيح... 💡"):
-                    system_instruction = (
-                        "أنت مساعد دراسي ونفسي محفز وودود للطلاب. "
-                        "أجب عن جميع أسئلة الطالب بوضوح وبساطة، ووجّهه دائماً نحو النجاح والتركيز."
-                    )
-                    
-                    try:
-                        model = genai.GenerativeModel(
-                            model_name="gemini-3.6-flash",
-                            system_instruction=system_instruction
+            with chat_container:
+                with st.chat_message("assistant"):
+                    with st.spinner("جاري التفكير والتوضيح... 💡"):
+                        system_instruction = (
+                            "أنت مساعد دراسي ونفسي محفز وودود للطلاب. "
+                            "أجب عن جميع أسئلة الطالب بوضوح وبساطة، ووجّهه دائماً نحو النجاح والتركيز."
                         )
                         
-                        formatted_history = []
-                        for h in st.session_state.chat_history[:-1]:
-                            role = "user" if h["role"] == "user" else "model"
-                            formatted_history.append({"role": role, "parts": [h["content"]]})
+                        try:
+                            model = genai.GenerativeModel(
+                                model_name="gemini-3.6-flash",
+                                system_instruction=system_instruction
+                            )
                             
-                        chat = model.start_chat(history=formatted_history)
-                        response = chat.send_message(user_query)
-                        
-                        if response and response.text:
-                            st.write(response.text)
-                            st.session_state.chat_history.append({"role": "assistant", "content": response.text})
-                            save_history(st.session_state.chat_history)
-                        else:
-                            st.error("لم يتم استلام رد من النموذج، حاول مرة أخرى.")
-                    except Exception as e:
-                        st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {e}")
+                            formatted_history = []
+                            for h in st.session_state.chat_history[:-1]:
+                                role = "user" if h["role"] == "user" else "model"
+                                formatted_history.append({"role": role, "parts": [h["content"]]})
+                                
+                            chat = model.start_chat(history=formatted_history)
+                            response = chat.send_message(user_query)
+                            
+                            if response and response.text:
+                                st.write(response.text)
+                                st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+                                save_history(st.session_state.chat_history)
+                                st.rerun()
+                            else:
+                                st.error("لم يتم استلام رد من النموذج، حاول مرة أخرى.")
+                        except Exception as e:
+                            st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {e}")
 
 # --- الخانة الثالثة: الجانب الروحي والنفسي ---
 with tab_spiritual:
