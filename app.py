@@ -98,20 +98,32 @@ with tab_ai:
     if not api_key:
         st.error("⚠️ لم يتم العثور على `GEMINI_API_KEY` في قسم Secrets. يرجى إضافته في إعدادات Streamlit.")
     else:
+        # تهيئة سجل السجل للرسائل للحفظ الدائم طوال الجلسة
         if "chat_history" not in st.session_state:
             st.session_state.chat_history = []
 
+        # زر لمسح السجل إذا أراد الطالب البدء من جديد
+        col_title, col_clear = st.columns([4, 1])
+        with col_clear:
+            if st.button("🗑️ مسح المحادثة"):
+                st.session_state.chat_history = []
+                st.rerun()
+
+        # عرض جميع المحادثات المحفوظة سابقة
         for msg in st.session_state.chat_history:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
 
+        # مدخل السؤال الجديد
         user_query = st.chat_input("اكتب سؤالك أو المادة التي تريد شرحها هنا...")
 
         if user_query:
+            # إضافة سؤال الطالب للحافظة وعرضه
             st.session_state.chat_history.append({"role": "user", "content": user_query})
             with st.chat_message("user"):
                 st.write(user_query)
 
+            # إجابة المساعد
             with st.chat_message("assistant"):
                 with st.spinner("جاري التفكير والتوضيح... 💡"):
                     system_instruction = (
@@ -120,24 +132,28 @@ with tab_ai:
                         "ووجّهه دائماً نحو النجاح والتركيز."
                     )
                     
-                    # تجربة أسماء النماذج بالترتيب الصحيح مع المسار المعتمد
+                    # قائمة بأسماء النماذج لتجربتها بالترتيب المضمون
                     candidate_models = [
-                        "models/gemini-1.5-flash",
-                        "models/gemini-1.5-flash-8b",
-                        "models/gemini-1.5-pro",
-                        "gemini-1.5-flash"
+                        "gemini-1.5-flash",
+                        "gemini-2.0-flash",
+                        "gemini-2.5-flash",
+                        "gemini-1.5-pro",
+                        "gemini-pro"
                     ]
                     
                     response_text = None
                     last_err = None
 
+                    # بناء نص محادثة تراكمي يتضمن السجل السابق ليتذكر المساعد ما سبق
+                    full_prompt = f"التعليمات: {system_instruction}\n\n"
+                    for h in st.session_state.chat_history:
+                        role_name = "الطالب" if h["role"] == "user" else "المساعد"
+                        full_prompt += f"{role_name}: {h['content']}\n"
+
                     for model_name in candidate_models:
                         try:
-                            model = genai.GenerativeModel(
-                                model_name=model_name,
-                                system_instruction=system_instruction
-                            )
-                            res = model.generate_content(user_query)
+                            model = genai.GenerativeModel(model_name=model_name)
+                            res = model.generate_content(full_prompt)
                             if res and res.text:
                                 response_text = res.text
                                 break
