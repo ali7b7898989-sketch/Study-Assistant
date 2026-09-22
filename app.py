@@ -52,7 +52,6 @@ api_key = st.secrets.get("GEMINI_API_KEY")
 if api_key:
     genai.configure(api_key=api_key)
 
-# دالة حفظ واسترجاع السجل محلياً
 HISTORY_FILE = "chat_history.json"
 
 def load_history():
@@ -115,11 +114,9 @@ with tab_ai:
     if not api_key:
         st.error("⚠️ لم يتم العثور على `GEMINI_API_KEY` في قسم Secrets. يرجى إضافته في إعدادات Streamlit.")
     else:
-        # تحميل سجل المحادثة المحفوظ
         if "chat_history" not in st.session_state:
             st.session_state.chat_history = load_history()
 
-        # زر مسح كل المحادثات
         col_clear, _ = st.columns([1, 3])
         with col_clear:
             if st.button("🗑️ مسح الكل"):
@@ -129,7 +126,7 @@ with tab_ai:
 
         st.divider()
 
-        # عرض المحادثات مع خيار حذف سؤال محدد
+        # عرض الرسائل القديمة
         i = 0
         while i < len(st.session_state.chat_history):
             msg = st.session_state.chat_history[i]
@@ -152,18 +149,16 @@ with tab_ai:
                     st.write(msg["content"])
             i += 1
 
-        # مدخل السؤال الجديد
+        # استقبال السؤال الجديد والمعالجة المباشرة السريعة
         user_query = st.chat_input("اكتب سؤالك أو المادة التي تريد شرحها هنا...")
 
         if user_query:
+            # عرض سؤال الطالب فوراً
+            with st.chat_message("user"):
+                st.write(user_query)
             st.session_state.chat_history.append({"role": "user", "content": user_query})
-            save_history(st.session_state.chat_history)
-            st.rerun()
 
-    # معالجة توليد الإجابة
-    if "chat_history" in st.session_state and len(st.session_state.chat_history) > 0:
-        last_msg = st.session_state.chat_history[-1]
-        if last_msg["role"] == "user":
+            # توليد الإجابة مباشرة بدون إعادة تحميل
             with st.chat_message("assistant"):
                 with st.spinner("جاري التفكير والتوضيح... 💡"):
                     system_instruction = (
@@ -177,17 +172,19 @@ with tab_ai:
                             system_instruction=system_instruction
                         )
                         
-                        context_prompt = ""
-                        for h in st.session_state.chat_history:
-                            role_label = "الطالب" if h["role"] == "user" else "المساعد"
-                            context_prompt += f"{role_label}: {h['content']}\n"
-                        
-                        response = model.generate_content(context_prompt)
+                        # استخدام نظام المحادثة المباشر للإجابة السريعة
+                        formatted_history = []
+                        for h in st.session_state.chat_history[:-1]:
+                            role = "user" if h["role"] == "user" else "model"
+                            formatted_history.append({"role": role, "parts": [h["content"]]})
+                            
+                        chat = model.start_chat(history=formatted_history)
+                        response = chat.send_message(user_query)
                         
                         if response and response.text:
+                            st.write(response.text)
                             st.session_state.chat_history.append({"role": "assistant", "content": response.text})
                             save_history(st.session_state.chat_history)
-                            st.rerun()
                         else:
                             st.error("لم يتم استلام رد من النموذج، حاول مرة أخرى.")
                     except Exception as e:
