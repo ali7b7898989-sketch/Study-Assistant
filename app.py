@@ -12,12 +12,10 @@ st.set_page_config(
 # 2. تخصيص الألوان والتصميم بالـ CSS
 st.markdown("""
     <style>
-    /* تصغير العناوين لتناسب شاشات الهواتف */
     h1 { font-size: 1.7rem !important; font-weight: 800; text-align: center; color: #6366F1; }
     h2 { font-size: 1.2rem !important; color: #38BDF8; }
     h3 { font-size: 1.05rem !important; }
     
-    /* تصميم البطاقات والحاويات */
     div[data-testid="stForm"], div.stCard {
         background-color: #1E293B !important;
         border-radius: 14px !important;
@@ -26,7 +24,6 @@ st.markdown("""
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
     }
 
-    /* تحسين تصميم التبويبات Tabs */
     button[data-baseweb="tab"] {
         font-size: 0.95rem !important;
         font-weight: 600 !important;
@@ -38,7 +35,6 @@ st.markdown("""
         color: #38BDF8 !important;
     }
 
-    /* تحسين الأزرار */
     div.stButton > button {
         background: linear-gradient(90deg, #6366F1 0%, #4F46E5 100%) !important;
         color: white !important;
@@ -53,6 +49,21 @@ st.markdown("""
 api_key = st.secrets.get("GEMINI_API_KEY")
 if api_key:
     genai.configure(api_key=api_key)
+
+# دالة تلقائية لمسح التخزين المؤقت والعثور على نموذج عملي فعال
+@st.cache_resource
+def get_working_model():
+    try:
+        models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        # اختيار أفضل نموذج متاح تلقائياً من الحساب
+        for preferred in ['models/gemini-1.5-flash', 'models/gemini-2.0-flash', 'models/gemini-1.5-pro']:
+            if preferred in models:
+                return preferred
+        if models:
+            return models[0]
+    except Exception:
+        pass
+    return "models/gemini-1.5-flash"
 
 # العنوان الرئيسي
 st.title("🎓 المساعد الدراسي")
@@ -98,73 +109,66 @@ with tab_ai:
     if not api_key:
         st.error("⚠️ لم يتم العثور على `GEMINI_API_KEY` في قسم Secrets. يرجى إضافته في إعدادات Streamlit.")
     else:
-        # تهيئة سجل السجل للرسائل للحفظ الدائم طوال الجلسة
+        # تهيئة سجل المحادثات
         if "chat_history" not in st.session_state:
             st.session_state.chat_history = []
 
-        # زر لمسح السجل إذا أراد الطالب البدء من جديد
-        col_title, col_clear = st.columns([4, 1])
+        # أزرار تحكم بالكل
+        col_clear, col_count = st.columns([1, 3])
         with col_clear:
-            if st.button("🗑️ مسح المحادثة"):
+            if st.button("🗑️ مسح الكل"):
                 st.session_state.chat_history = []
                 st.rerun()
 
-        # عرض جميع المحادثات المحفوظة سابقة
-        for msg in st.session_state.chat_history:
-            with st.chat_message(msg["role"]):
-                st.write(msg["content"])
+        st.divider()
+
+        # عرض الرسائل وحذف سؤال محدد
+        for idx, msg in enumerate(st.session_state.chat_history):
+            col_msg, col_del = st.columns([11, 1])
+            with col_msg:
+                with st.chat_message(msg["role"]):
+                    st.write(msg["content"])
+            with col_del:
+                if msg["role"] == "user":
+                    if st.button("❌", key=f"del_{idx}", help="حذف هذا السؤال مع إجابته"):
+                        # حذف السؤال والإجابة التي تليه مباشرة
+                        del st.session_state.chat_history[idx:idx+2]
+                        st.rerun()
 
         # مدخل السؤال الجديد
         user_query = st.chat_input("اكتب سؤالك أو المادة التي تريد شرحها هنا...")
 
         if user_query:
-            # إضافة سؤال الطالب للحافظة وعرضه
             st.session_state.chat_history.append({"role": "user", "content": user_query})
             with st.chat_message("user"):
                 st.write(user_query)
 
-            # إجابة المساعد
             with st.chat_message("assistant"):
                 with st.spinner("جاري التفكير والتوضيح... 💡"):
                     system_instruction = (
                         "أنت مساعد دراسي ونفسي محفز وودود للطلاب. "
-                        "أجب عن جميع أسئلة الطالب بوضوح وبساطة سواء كانت دراسية أو عامة، "
-                        "ووجّهه دائماً نحو النجاح والتركيز."
+                        "أجب عن جميع أسئلة الطالب بوضوح وبساطة، ووجّهه دائماً نحو النجاح والتركيز."
                     )
                     
-                    # قائمة بأسماء النماذج لتجربتها بالترتيب المضمون
-                    candidate_models = [
-                        "gemini-1.5-flash",
-                        "gemini-2.0-flash",
-                        "gemini-2.5-flash",
-                        "gemini-1.5-pro",
-                        "gemini-pro"
-                    ]
-                    
-                    response_text = None
-                    last_err = None
-
-                    # بناء نص محادثة تراكمي يتضمن السجل السابق ليتذكر المساعد ما سبق
-                    full_prompt = f"التعليمات: {system_instruction}\n\n"
-                    for h in st.session_state.chat_history:
-                        role_name = "الطالب" if h["role"] == "user" else "المساعد"
-                        full_prompt += f"{role_name}: {h['content']}\n"
-
-                    for model_name in candidate_models:
-                        try:
-                            model = genai.GenerativeModel(model_name=model_name)
-                            res = model.generate_content(full_prompt)
-                            if res and res.text:
-                                response_text = res.text
-                                break
-                        except Exception as e:
-                            last_err = e
-
-                    if response_text:
-                        st.write(response_text)
-                        st.session_state.chat_history.append({"role": "assistant", "content": response_text})
-                    else:
-                        st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {last_err}")
+                    try:
+                        active_model_name = get_working_model()
+                        model = genai.GenerativeModel(
+                            model_name=active_model_name,
+                            system_instruction=system_instruction
+                        )
+                        
+                        # بناء السياق التراكمي
+                        context_prompt = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.chat_history])
+                        
+                        response = model.generate_content(context_prompt)
+                        
+                        if response and response.text:
+                            st.write(response.text)
+                            st.session_state.chat_history.append({"role": "assistant", "content": response.text})
+                        else:
+                            st.error("لم يتم استلام رد من النموذج، حاول مرة أخرى.")
+                    except Exception as e:
+                        st.error(f"حدث خطأ أثناء الاتصال: {e}")
 
 # --- الخانة الثالثة: الجانب الروحي والنفسي ---
 with tab_spiritual:
