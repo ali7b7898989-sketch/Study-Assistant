@@ -97,43 +97,50 @@ with tab_ai:
     if not client:
         st.error("⚠️ لم يتم العثور على `GEMINI_API_KEY` في قسم Secrets. يرجى إضافته في إعدادات Streamlit.")
     else:
-        # احتفاظ بسجل المحادثة أثناء جلسة الاستخدام
         if "chat_history" not in st.session_state:
             st.session_state.chat_history = []
 
-        # عرض الرسائل السابقة
         for msg in st.session_state.chat_history:
             with st.chat_message(msg["role"]):
                 st.write(msg["content"])
 
-        # مربع إدخال السؤال
         user_query = st.chat_input("اكتب سؤالك أو المادة التي تريد شرحها هنا...")
 
         if user_query:
-            # عرض سؤال المستخدم
             st.session_state.chat_history.append({"role": "user", "content": user_query})
             with st.chat_message("user"):
                 st.write(user_query)
 
-            # طلب الإجابة من الذكاء الاصطناعي
             with st.chat_message("assistant"):
                 with st.spinner("جاري التفكير والتوضيح... 💡"):
-                    try:
-                        # تعليمات للنظام ليكون أسلوبه مشجعاً ومخصصاً للطلاب
-                        system_prompt = (
-                            "أنت مساعد دراسي ذكي ومحفز للطلاب. "
-                            "قدم إجابات مبسطة، واضحة، ومنظمة بأسلوب يسهل الحفظ والفهم."
-                        )
-                        
-                        response = client.models.generate_content(
-                            model="gemini-1.5-flash",
-                            contents=f"{system_prompt}\n\nسؤال الطالب: {user_query}"
-                        )
-                        
-                        st.write(response.text)
-                        st.session_state.chat_history.append({"role": "assistant", "content": response.text})
-                    except Exception as e:
-                        st.error(f"حدث خطأ أثناء التواصل مع المساعد الذكي: {e}")
+                    system_prompt = (
+                        "أنت مساعد دراسي ذكي ومحفز للطلاب. "
+                        "قدم إجابات مبسطة، واضحة، ومنظمة بأسلوب يسهل الحفظ والفهم."
+                    )
+                    prompt_text = f"{system_prompt}\n\nسؤال الطالب: {user_query}"
+                    
+                    # قائمة بالنماذج المتاحة للجرية بالترتيب
+                    models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+                    response_text = None
+                    last_error = None
+
+                    for model_name in models_to_try:
+                        try:
+                            response = client.models.generate_content(
+                                model=model_name,
+                                contents=prompt_text
+                            )
+                            if response and response.text:
+                                response_text = response.text
+                                break
+                        except Exception as e:
+                            last_error = e
+
+                    if response_text:
+                        st.write(response_text)
+                        st.session_state.chat_history.append({"role": "assistant", "content": response_text})
+                    else:
+                        st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {last_error}")
 
 # --- الخانة الثالثة: الجانب الروحي والنفسي ---
 with tab_spiritual:
