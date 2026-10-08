@@ -3,7 +3,6 @@ import google.generativeai as genai
 import json
 import os
 import pandas as pd
-from PIL import Image
 
 # 1. ضبط إعدادات الصفحة
 st.set_page_config(
@@ -88,7 +87,6 @@ if api_key:
     genai.configure(api_key=api_key)
 
 HISTORY_FILE = "chat_history.json"
-GUESTBOOK_FILE = "guestbook.json"
 
 def load_history():
     if os.path.exists(HISTORY_FILE):
@@ -106,36 +104,18 @@ def save_history(history):
     except Exception:
         pass
 
-def load_guestbook():
-    if os.path.exists(GUESTBOOK_FILE):
-        try:
-            with open(GUESTBOOK_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            return []
-    return []
-
-def save_guestbook(entries):
-    try:
-        with open(GUESTBOOK_FILE, "w", encoding="utf-8") as f:
-            json.dump(entries, f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
-
 # العنوان الرئيسي
 st.title("🎓 المساعد الدراسي")
 st.caption("<p style='text-align: center; color: #94A3B8;'>✨ منصتك الذكية لتنظيم الوقت والدراسة</p>", unsafe_allow_html=True)
 
-# التبويبات الرئيسية (تم إضافة الحاسبة وسجل الزوار)
-tab_home, tab_timer, tab_ai, tab_calc, tab_spiritual, tab_tips, tab_schedule, tab_guestbook = st.tabs([
+# التبويبات الرئيسية
+tab_home, tab_timer, tab_ai, tab_spiritual, tab_tips, tab_schedule = st.tabs([
     "🏠 المهام", 
     "⏱️ المؤقت",
     "🤖 المساعد", 
-    "🧮 الحاسبة",
     "🤲 الروحي", 
     "💡 نصائح",
-    "📅 الجداول",
-    "🔒 سجل الزوار"
+    "📅 الجداول"
 ])
 
 # --- 1. المهام اليومية ---
@@ -189,7 +169,7 @@ with tab_timer:
     if st.button("🚀 ابدأ جلسة التركيز", use_container_width=True):
         st.success(f"🎯 بدأت الجلسة! {study_m} دقيقة تركيز، تليها {break_m} دقائق استراحة.")
 
-# --- 3. المساعد الذكي (مع إرفاق الصور) ---
+# --- 3. المساعد الذكي ---
 with tab_ai:
     st.subheader("🤖 المساعد الدراسي الذكي")
     
@@ -199,21 +179,12 @@ with tab_ai:
         if "chat_history" not in st.session_state:
             st.session_state.chat_history = load_history()
 
-        col_clear, col_img = st.columns([1, 3])
+        col_clear, _ = st.columns([1, 3])
         with col_clear:
             if st.button("🗑️ مسح الكل"):
                 st.session_state.chat_history = []
                 save_history([])
                 st.rerun()
-
-        st.divider()
-
-        # إرفاق صورة للمسائل والتمارين
-        uploaded_image = st.file_uploader("📷 إرفاق صورة (مسألة أو صفحة كتاب) لقراءتها ومساعدتك فيها:", type=["png", "jpg", "jpeg"])
-        img_obj = None
-        if uploaded_image:
-            img_obj = Image.open(uploaded_image)
-            st.image(img_obj, caption="الصورة المرفقة", width=250)
 
         st.divider()
 
@@ -254,17 +225,13 @@ with tab_ai:
                     system_instruction=system_instruction
                 )
                 
-                if img_obj:
-                    # عند إرفاق صورة
-                    response = model.generate_content([user_query, img_obj])
-                else:
-                    formatted_history = []
-                    for h in st.session_state.chat_history[:-1]:
-                        role = "user" if h["role"] == "user" else "model"
-                        formatted_history.append({"role": role, "parts": [h["content"]]})
-                        
-                    chat = model.start_chat(history=formatted_history)
-                    response = chat.send_message(user_query)
+                formatted_history = []
+                for h in st.session_state.chat_history[:-1]:
+                    role = "user" if h["role"] == "user" else "model"
+                    formatted_history.append({"role": role, "parts": [h["content"]]})
+                    
+                chat = model.start_chat(history=formatted_history)
+                response = chat.send_message(user_query)
                 
                 if response and response.text:
                     st.session_state.chat_history.append({"role": "assistant", "content": response.text})
@@ -275,44 +242,7 @@ with tab_ai:
             except Exception as e:
                 st.error(f"حدث خطأ أثناء الاتصال بالنموذج: {e}")
 
-# --- 4. الحاسبة الدراسية ---
-with tab_calc:
-    st.subheader("🧮 الحاسبة الدراسية وحساب المعدل")
-    st.info("قم بإدخال درجاتك لحساب المجموع والمعدل والنسبة المئوية بدقة.")
-    
-    num_subjects = st.number_input("عدد المواد الدراسية:", min_value=1, max_value=15, value=6, step=1)
-    
-    grades = []
-    cols = st.columns(2)
-    for idx in range(int(num_subjects)):
-        with cols[idx % 2]:
-            g = st.number_input(f"درجة المادة {idx+1}:", min_value=0.0, max_value=100.0, value=90.0, step=1.0, key=f"grade_{idx}")
-            grades.append(g)
-            
-    if st.button("📊 احسب المعدل والنتيجة", use_container_width=True):
-        total = sum(grades)
-        avg = total / num_subjects
-        
-        col_res1, col_res2, col_res3 = st.columns(3)
-        col_res1.metric("إجمالي الدرجات", f"{total:.1f} / {num_subjects*100}")
-        col_res2.metric("المعدل النهائي", f"{avg:.2f}%")
-        
-        if avg >= 90:
-            status = "ممتاز 🎉"
-        elif avg >= 80:
-            status = "جيد جداً 🌟"
-        elif avg >= 70:
-            status = "جيد 👍"
-        elif avg >= 60:
-            status = "متوسط 📈"
-        elif avg >= 50:
-            status = "مقبول 🤝"
-        else:
-            status = "يحتاج إلى شد الهمة 💪"
-            
-        col_res3.metric("التقدير العام", status)
-
-# --- 5. الروحي والأدعية (مع إضافة سورة يس) ---
+# --- 4. الروحي والأدعية (مكتمل بالكامل) ---
 with tab_spiritual:
     st.subheader("🤲 الأدعية والتهيئة النفسية")
     
@@ -398,15 +328,6 @@ with tab_spiritual:
             """, unsafe_allow_html=True)
             st.info("💡 **همسة دراسية:** آية ﴿وَلَسَوْفَ يُعْطِيكَ رَبُّكَ فَتَرْضَى﴾ تزيل أثر القلق وتمنح الطالب أملًا كبيراً وتوفيقاً في النتائج.")
 
-        # إضافة سورة يس كملاحظة وقسم خاص مبارك
-        with st.expander("💚 سورة يس المباركة (قلب القرآن لقضاء الحوائج والبركة)"):
-            st.markdown("""
-                <div class="quran-box">
-                <b>﴿ يس ۝ وَالْقُرْآنِ الْحَكِيمِ ۝ إِنَّكَ لَمِنَ الْمُرْسَلِينَ ۝ عَلَى صِرَاطٍ مُسْتَقِيمٍ ۝ تَنْزِيلَ الْعَزِيزِ الرَّحِيمِ ﴾</b>
-                </div>
-            """, unsafe_allow_html=True)
-            st.success("🌸 **نفحة مباركة وطمأنينة:** سورة يس هي قلب القرآن الكريم، وقراءتها صباحاً قبل المذاكرة أو عند تعسر درس تُيسر الصعاب وتفتح مغاليق الفهم وتنزل السكينة والبركة في الوقت بإذن الله تعالى.")
-
     elif "زيارة عاشوراء" in dua_option:
         st.write("### 📜 زيارة عاشوراء الشريفة كاملة")
         
@@ -429,7 +350,7 @@ with tab_spiritual:
                 </div>
             """, unsafe_allow_html=True)
 
-# --- 6. النصائح والإرشادات المفصلة الشاملة ---
+# --- 5. النصائح والإرشادات المفصلة الشاملة ---
 with tab_tips:
     st.subheader("💡 نصائح وإرشادات التميز الدراسي والتأهيل النفسي")
     
@@ -471,7 +392,7 @@ with tab_tips:
         st.warning("📵 **إبعاد التشتت:** ضع الهاتف في غرفة أخرى أو فعّل وضع عدم الإزعاج أثناء جلسات المذاكرة.")
         st.info("😴 **النوم الكافي:** الذاكرة تقوم بترتيب وتثبيت المعلومات أثناء النوم ليلاً، فلا تهمل 7-8 ساعات نوم يومياً.")
 
-# --- 7. الجداول المدرسية والتخطيط ---
+# --- 6. الجداول المدرسية والتخطيط ---
 with tab_schedule:
     st.subheader("📅 الجداول والدراسة اليومية حسب نظام الدوام")
     
@@ -525,42 +446,3 @@ with tab_schedule:
             ]
         }
         st.table(pd.DataFrame(data_afternoon))
-
-# --- 8. سجل الزوار المحمي بكلمة سر ---
-with tab_guestbook:
-    st.subheader("🔒 سجل الزوار والرسائل الخاص")
-    st.caption("اكتب رسالة أو انطباعاً، أو ادخل كلمة السر لعرض السجل الخاص بك.")
-    
-    # نموذج إضافة رسالة
-    with st.form("guestbook_form"):
-        visitor_name = st.text_input("اسمك / لقبك:")
-        visitor_msg = st.text_area("رسالتك أو ملاحظتك:")
-        submit_btn = st.form_submit_button("✍️ إرسال إلى سجل الزوار")
-        
-        if submit_btn:
-            if visitor_name and visitor_msg:
-                entries = load_guestbook()
-                entries.append({"name": visitor_name, "message": visitor_msg})
-                save_guestbook(entries)
-                st.success("تم تسجيل رسالتك بنجاح! شكر لك ✨")
-            else:
-                st.warning("يرجى ملء الاسم والرسالة أولاً.")
-                
-    st.divider()
-    
-    # قسم حماية عرض السجل بكلمة سر
-    st.write("### 🔑 مشاهدة سجل الرسائل المخزنة")
-    pass_input = st.text_input("أدخل كلمة السر الخاصة للوصول إلى السجل:", type="password")
-    
-    # كلمة السر الافتراضية هي 1234 ويمكنك تغييرها بسهولة
-    if pass_input == "1234":
-        st.success("تم التحقق بنجاح! السجل الخاص بك:")
-        entries = load_guestbook()
-        if entries:
-            for idx, entry in enumerate(reversed(entries)):
-                st.markdown(f"**👤 {entry['name']}:**")
-                st.info(entry['message'])
-        else:
-            st.info("لا توجد رسائل مسجلة حتى الآن.")
-    elif pass_input != "":
-        st.error("كلمة السر غير صحيحة ❌")
